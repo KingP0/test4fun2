@@ -9,6 +9,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -16,9 +17,9 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.gms.maps.GoogleMap;
-import com.google.android.gms.maps.MapFragment;
 import com.google.android.gms.maps.MapsInitializer;
 import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.tasks.Task;
 import com.google.android.libraries.places.api.Places;
 import com.google.android.libraries.places.api.model.Place;
@@ -33,7 +34,6 @@ import java.util.List;
 
 public class SecondActivity extends AppCompatActivity implements OnMapReadyCallback {
 
-    private GoogleMap mMap;
     private PlacesClient placesClient;
     private RecyclerView recyclerView;
 
@@ -43,6 +43,10 @@ public class SecondActivity extends AppCompatActivity implements OnMapReadyCallb
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_second);
 
+        // Initialize the Places API with your API key
+        String apiKey = "AIzaSyCJ0WliVHV7m8SKYnxBYrH4kLW9Tpr8no8";
+        Places.initialize(getApplicationContext(), apiKey);
+
         // Initialize the Google Maps API
         MapsInitializer.initialize(getApplicationContext());
 
@@ -50,8 +54,9 @@ public class SecondActivity extends AppCompatActivity implements OnMapReadyCallb
         placesClient = Places.createClient(this);
 
         // Get the MapFragment and initialize the Google Map object
-        MapFragment mapFragment = (MapFragment) getFragmentManager()
+        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
+        assert mapFragment != null;
         mapFragment.getMapAsync(this);
 
         // Get the RecyclerView for the restaurant list
@@ -71,10 +76,9 @@ public class SecondActivity extends AppCompatActivity implements OnMapReadyCallb
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
-        mMap = googleMap;
 
         // Enable the zoom controls on the map
-        mMap.getUiSettings().setZoomControlsEnabled(true);
+        googleMap.getUiSettings().setZoomControlsEnabled(true);
 
         // Request permission for location access if not granted already
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -83,7 +87,7 @@ public class SecondActivity extends AppCompatActivity implements OnMapReadyCallb
                     new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1);
         } else {
             // Enable the user's current location on the map
-            mMap.setMyLocationEnabled(true);
+            googleMap.setMyLocationEnabled(true);
         }
     }
 
@@ -120,15 +124,16 @@ public class SecondActivity extends AppCompatActivity implements OnMapReadyCallb
         });
     }
 
-    private class RestaurantAdapter extends RecyclerView.Adapter<RestaurantViewHolder> {
-        private List<String> restaurantNames;
-        private List<String> restaurantAddresses;
+    private static class RestaurantAdapter extends RecyclerView.Adapter<RestaurantViewHolder> {
+        private final List<String> restaurantNames;
+        private final List<String> restaurantAddresses;
 
         public RestaurantAdapter(List<String> restaurantNames, List<String> restaurantAddresses) {
             this.restaurantNames = restaurantNames;
             this.restaurantAddresses = restaurantAddresses;
         }
 
+        @NonNull
         @Override
         public RestaurantViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
             View view = LayoutInflater.from(parent.getContext())
@@ -163,7 +168,7 @@ public class SecondActivity extends AppCompatActivity implements OnMapReadyCallb
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == 1) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {

@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">test4fun</string>
+    <string name="i_m_hungry">I\'m Hungry</string>
+    <string name="drawable_logo">drawable/logo</string>
 </resources>
