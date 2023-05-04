@@ -18,5 +18,12 @@ public class MainActivity extends AppCompatActivity {
             Intent intent = new Intent(MainActivity.this, SecondActivity.class);
             startActivity(intent);
         });
+
+        Button restoButton = findViewById(R.id.restoButton);
+        restoButton.setOnClickListener(view -> {
+            Intent intent = new Intent(MainActivity.this, Resto.class);
+            startActivity(intent);
+        });
     }
+
 }
