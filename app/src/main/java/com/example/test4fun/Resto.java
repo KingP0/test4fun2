@@ -7,35 +7,32 @@ import android.location.Location;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.util.Log;
-
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
-
-import com.google.android.gms.tasks.Task;
-import com.google.android.libraries.places.api.Places;
-import com.google.android.libraries.places.api.model.Place;
-import com.google.android.libraries.places.api.model.PlaceLikelihood;
-import com.google.android.libraries.places.api.net.FindCurrentPlaceRequest;
-import com.google.android.libraries.places.api.net.FindCurrentPlaceResponse;
-import com.google.android.libraries.places.api.net.PlacesClient;
-import com.google.android.gms.maps.model.LatLng;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.gms.maps.MapsInitializer;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.libraries.places.api.Places;
+import com.google.android.libraries.places.api.model.Place;
+import com.google.android.libraries.places.api.model.PlaceLikelihood;
+import com.google.android.libraries.places.api.net.FindCurrentPlaceRequest;
+import com.google.android.libraries.places.api.net.FindCurrentPlaceResponse;
+import com.google.android.libraries.places.api.net.PlacesClient;
+import com.google.android.gms.tasks.Task;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
 
 public class Resto extends AppCompatActivity {
 
@@ -60,32 +57,30 @@ public class Resto extends AppCompatActivity {
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
         // Create an empty adapter and attach it to the RecyclerView
-        RestaurantAdapter adapter = new RestaurantAdapter(new ArrayList<>(), new ArrayList<>());
+        RestaurantAdapter adapter = new RestaurantAdapter(new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
         recyclerView.setAdapter(adapter);
 
-
         // Request permission for location access if not granted already
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                     LOCATION_PERMISSION_REQUEST_CODE);
         } else {
-            recyclerView.setAdapter(new RestaurantAdapter(new ArrayList<>(), new ArrayList<>()));
+            recyclerView.setAdapter(new RestaurantAdapter(new ArrayList<>(), new ArrayList<>(), new ArrayList<>()));
             // Use the Google Places API to get a list of nearby restaurants
             findNearbyRestaurants();
         }
     }
 
-
-
-
     private static class RestaurantAdapter extends RecyclerView.Adapter<RestaurantViewHolder> {
         private final List<String> restaurantNames;
         private final List<String> restaurantAddresses;
+        private final List<String> restaurantDistances; // Added list for distances
 
-        public RestaurantAdapter(List<String> restaurantNames, List<String> restaurantAddresses) {
+        public RestaurantAdapter(List<String> restaurantNames, List<String> restaurantAddresses, List<String> restaurantDistances) {
             this.restaurantNames = restaurantNames;
             this.restaurantAddresses = restaurantAddresses;
+            this.restaurantDistances = restaurantDistances;
         }
 
         @NonNull
@@ -100,8 +95,10 @@ public class Resto extends AppCompatActivity {
         public void onBindViewHolder(RestaurantViewHolder holder, int position) {
             String name = restaurantNames.get(position);
             String address = restaurantAddresses.get(position);
+            String distance = restaurantDistances.get(position); // Get the distance for the current position
             holder.nameTextView.setText(name);
             holder.addressTextView.setText(address);
+            holder.distanceTextView.setText(distance); // Set the distance in the TextView
         }
 
         @Override
@@ -113,14 +110,17 @@ public class Resto extends AppCompatActivity {
     private static class RestaurantViewHolder extends RecyclerView.ViewHolder {
         public TextView nameTextView;
         public TextView addressTextView;
+        public TextView distanceTextView; // Added TextView for distance
 
         public RestaurantViewHolder(View itemView) {
             super(itemView);
 
             nameTextView = itemView.findViewById(R.id.restaurant_name);
             addressTextView = itemView.findViewById(R.id.restaurant_address);
+            distanceTextView = itemView.findViewById(R.id.restaurant_distance); // Initialize distance TextView
         }
     }
+
 
     private void findNearbyRestaurants() {
         // Define the fields to return for each PlaceLikelihood
@@ -140,9 +140,10 @@ public class Resto extends AppCompatActivity {
                 // Create a list of restaurant names and addresses
                 List<String> restaurantNames = new ArrayList<>();
                 List<String> restaurantAddresses = new ArrayList<>();
+                List<String> restaurantDistances = new ArrayList<>();
 
                 LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                     return;
                 }
                 Location userLocation = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
@@ -164,17 +165,21 @@ public class Resto extends AppCompatActivity {
 
                             // Vérifier si la distance est inférieure à la distance de validité
                             if (distanceResults.length == 1 && distanceResults[0] <= validDistance) {
-                                // Ajouter le restaurant à la liste s'il est dans le périmètre de validité
+                                // Calculate the distance in meters and format it
+                                String distance = String.format(Locale.getDefault(), "%.2f meters", distanceResults[0]);
+
+                                // Add the restaurant, address, and distance to the respective lists
                                 nearbyRestaurants.add(place);
+                                restaurantNames.add(place.getName());
+                                restaurantAddresses.add(place.getAddress());
+                                restaurantDistances.add(distance); // Add distance to the list
                             }
                         }
                     }
                 }
 
-
-
                 // Set the adapter for the RecyclerView to display the list of restaurants
-                RestaurantAdapter adapter = new RestaurantAdapter(restaurantNames, restaurantAddresses);
+                RestaurantAdapter adapter = new RestaurantAdapter(restaurantNames, restaurantAddresses, restaurantDistances);
                 recyclerView.setAdapter(adapter);
             } else {
                 Exception exception = task.getException();
@@ -200,5 +205,4 @@ public class Resto extends AppCompatActivity {
             }
         }
     }
-
 }
