@@ -33,12 +33,14 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 public class Resto extends AppCompatActivity {
 
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 123;
     private PlacesClient placesClient;
     private RecyclerView recyclerView;
+    private List<Place> nearbyRestaurants = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,7 +59,7 @@ public class Resto extends AppCompatActivity {
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
         // Create an empty adapter and attach it to the RecyclerView
-        RestaurantAdapter adapter = new RestaurantAdapter(new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
+        RestaurantAdapter adapter = new RestaurantAdapter();
         recyclerView.setAdapter(adapter);
 
         // Request permission for location access if not granted already
@@ -66,21 +68,17 @@ public class Resto extends AppCompatActivity {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                     LOCATION_PERMISSION_REQUEST_CODE);
         } else {
-            recyclerView.setAdapter(new RestaurantAdapter(new ArrayList<>(), new ArrayList<>(), new ArrayList<>()));
+            recyclerView.setAdapter(new RestaurantAdapter());
             // Use the Google Places API to get a list of nearby restaurants
             findNearbyRestaurants();
         }
     }
 
     private static class RestaurantAdapter extends RecyclerView.Adapter<RestaurantViewHolder> {
-        private final List<String> restaurantNames;
-        private final List<String> restaurantAddresses;
-        private final List<String> restaurantDistances; // Added list for distances
+        private final List<Place> nearbyRestaurants;
 
-        public RestaurantAdapter(List<String> restaurantNames, List<String> restaurantAddresses, List<String> restaurantDistances) {
-            this.restaurantNames = restaurantNames;
-            this.restaurantAddresses = restaurantAddresses;
-            this.restaurantDistances = restaurantDistances;
+        public RestaurantAdapter() {
+            this.nearbyRestaurants = new ArrayList<>();
         }
 
         @NonNull
@@ -93,34 +91,30 @@ public class Resto extends AppCompatActivity {
 
         @Override
         public void onBindViewHolder(RestaurantViewHolder holder, int position) {
-            String name = restaurantNames.get(position);
-            String address = restaurantAddresses.get(position);
-            String distance = restaurantDistances.get(position); // Get the distance for the current position
+            Place place = nearbyRestaurants.get(position);
+            String name = place.getName();
+            String address = place.getAddress();
             holder.nameTextView.setText(name);
             holder.addressTextView.setText(address);
-            holder.distanceTextView.setText(distance); // Set the distance in the TextView
         }
 
         @Override
         public int getItemCount() {
-            return restaurantNames.size();
+            return nearbyRestaurants.size();
         }
     }
 
     private static class RestaurantViewHolder extends RecyclerView.ViewHolder {
         public TextView nameTextView;
         public TextView addressTextView;
-        public TextView distanceTextView; // Added TextView for distance
 
         public RestaurantViewHolder(View itemView) {
             super(itemView);
 
             nameTextView = itemView.findViewById(R.id.restaurant_name);
             addressTextView = itemView.findViewById(R.id.restaurant_address);
-            distanceTextView = itemView.findViewById(R.id.restaurant_distance); // Initialize distance TextView
         }
     }
-
 
     private void findNearbyRestaurants() {
         // Define the fields to return for each PlaceLikelihood
@@ -137,10 +131,8 @@ public class Resto extends AppCompatActivity {
                 FindCurrentPlaceResponse response = task.getResult();
                 List<PlaceLikelihood> likelihoods = response.getPlaceLikelihoods();
 
-                // Create a list of restaurant names and addresses
-                List<String> restaurantNames = new ArrayList<>();
-                List<String> restaurantAddresses = new ArrayList<>();
-                List<String> restaurantDistances = new ArrayList<>();
+                // Create a list of nearby restaurants
+                nearbyRestaurants.clear();
 
                 LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
                 if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -148,14 +140,12 @@ public class Resto extends AppCompatActivity {
                 }
                 Location userLocation = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
 
-                List<Place> nearbyRestaurants = new ArrayList<>();
-
-                double validDistance = 1000; // Définir la distance de validité à 1000 mètres
+                double validDistance = 1000; // Set the validity distance to 1000 meters
 
                 for (PlaceLikelihood likelihood : likelihoods) {
                     Place place = likelihood.getPlace();
 
-                    if (place.getTypes().contains(Place.Type.RESTAURANT)) {
+                    if (Objects.requireNonNull(place.getTypes()).contains(Place.Type.RESTAURANT)) {
                         LatLng placeLatLng = place.getLatLng();
 
                         if (placeLatLng != null && userLocation != null) {
@@ -163,24 +153,16 @@ public class Resto extends AppCompatActivity {
                             Location.distanceBetween(userLocation.getLatitude(), userLocation.getLongitude(),
                                     placeLatLng.latitude, placeLatLng.longitude, distanceResults);
 
-                            // Vérifier si la distance est inférieure à la distance de validité
-                            if (distanceResults.length == 1 && distanceResults[0] <= validDistance) {
-                                // Calculate the distance in meters and format it
-                                String distance = String.format(Locale.getDefault(), "%.2f meters", distanceResults[0]);
-
-                                // Add the restaurant, address, and distance to the respective lists
+                            // Check if the distance is less than the validity distance
+                            if (distanceResults[0] <= validDistance) {
                                 nearbyRestaurants.add(place);
-                                restaurantNames.add(place.getName());
-                                restaurantAddresses.add(place.getAddress());
-                                restaurantDistances.add(distance); // Add distance to the list
                             }
                         }
                     }
                 }
 
                 // Set the adapter for the RecyclerView to display the list of restaurants
-                RestaurantAdapter adapter = new RestaurantAdapter(restaurantNames, restaurantAddresses, restaurantDistances);
-                recyclerView.setAdapter(adapter);
+                recyclerView.getAdapter().notifyDataSetChanged();
             } else {
                 Exception exception = task.getException();
                 if (exception != null) {

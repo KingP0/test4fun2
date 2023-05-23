@@ -2,13 +2,12 @@ package com.example.test4fun;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
-import android.location.Location;
 import android.os.Bundle;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
@@ -18,14 +17,20 @@ import com.google.android.gms.maps.MapsInitializer;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.libraries.places.api.Places;
+import com.google.android.libraries.places.api.model.Place;
+import com.google.android.libraries.places.api.model.PlaceLikelihood;
+import com.google.android.libraries.places.api.net.FindCurrentPlaceRequest;
 import com.google.android.libraries.places.api.net.PlacesClient;
+
+import java.util.Arrays;
+import java.util.List;
 
 public class SecondActivity extends AppCompatActivity implements OnMapReadyCallback {
 
     private PlacesClient placesClient;
-    private RecyclerView recyclerView;
     private GoogleMap mMap;
     private FusedLocationProviderClient fusedLocationClient;
     private final int LOCATION_REQUEST_CODE = 101;
@@ -77,12 +82,39 @@ public class SecondActivity extends AppCompatActivity implements OnMapReadyCallb
                     // Got last known location. In some rare situations, this can be null.
                     if (location != null) {
                         LatLng currentLatLng = new LatLng(location.getLatitude(), location.getLongitude());
-                        mMap.addMarker(new MarkerOptions().position(currentLatLng).title("Current Location"));
                         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 15));
                     }
                 });
-    }
 
+        // Perform a place search for restaurants
+        FindCurrentPlaceRequest request = FindCurrentPlaceRequest.builder(Arrays.asList(Place.Field.NAME, Place.Field.LAT_LNG))
+                .build();
+        placesClient.findCurrentPlace(request).addOnSuccessListener((response) -> {
+            List<PlaceLikelihood> placeLikelihoods = response.getPlaceLikelihoods();
+
+            for (PlaceLikelihood placeLikelihood : placeLikelihoods) {
+                Place place = placeLikelihood.getPlace();
+                LatLng placeLatLng = place.getLatLng();
+                String placeName = place.getName();
+
+                if (placeLatLng != null && placeName != null) {
+                    Marker marker = mMap.addMarker(new MarkerOptions().position(placeLatLng).title(placeName));
+                    marker.setTag(place.getId());
+                }
+            }
+        });
+
+
+        // Add marker click listener for restaurants
+        mMap.setOnMarkerClickListener(marker -> {
+            // Add code to handle marker click event
+            String placeId = (String) marker.getTag();
+            if (placeId != null) {
+                Toast.makeText(SecondActivity.this, "Marker Clicked: " + placeId, Toast.LENGTH_SHORT).show();
+            }
+            return true;
+        });
+    }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
